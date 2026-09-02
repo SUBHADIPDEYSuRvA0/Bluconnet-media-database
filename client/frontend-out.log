@@ -1,0 +1,32 @@
+
+> b2b-frontend@1.0.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v4.5.14[39m  [2mready in [0m[1m1367[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh[22m[2m to show help[22m
+[2m10:27:11 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/lib/api.ts[22m
+[2m10:27:57 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:29:16 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:30:09 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mdist/index.html[22m
+[2m10:50:51 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:50:56 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:51:03 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:51:25 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mdist/index.html[22m
+[2m10:52:26 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/lib/api.ts[22m
+[2m10:52:54 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:52:59 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m10:53:05 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:06:28 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/lib/api.ts[22m
+[2m11:06:34 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:06:40 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:06:47 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:22:14 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Login.tsx[22m
+[2m11:22:26 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Login.tsx[22m
+[2m11:47:20 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:47:21 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:48:45 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/pages/Companies.tsx[22m
+[2m11:59:30 pm[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mC:/Users/subha/Downloads/b2b-lead-platform/client/src/lib/api.ts[22m

@@ -1,0 +1,24 @@
+﻿import { Router } from 'express';
+import multer from 'multer';
+import { authenticate, authorize } from '../middleware/auth';
+import { getCompanies, createCompany, updateCompanyStatus, updateCompany, deleteCompany, exportCompanies } from '../controllers/company.controller';
+import { importCompanies, getImportLogs } from '../controllers/import.controller';
+
+const router = Router();
+
+const maxSize = Number(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024; // default 5MB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxSize },
+});
+
+router.get('/', authenticate, getCompanies);
+router.get('/export', authenticate, exportCompanies);
+router.post('/', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER', 'EMPLOYEE'), createCompany);
+router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), updateCompany);
+router.patch('/:id/status', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), updateCompanyStatus);
+router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), deleteCompany);
+router.post('/import', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), upload.single('file'), importCompanies);
+router.get('/import/logs', authenticate, getImportLogs);
+
+export default router;
