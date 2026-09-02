@@ -1,10 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
-import * as fs from 'fs';
 
 const prisma = new PrismaClient();
-const EXCEL_FILE = 'C:/Users/subha/Downloads/advertisers_2025-11-25-204204.csvCCC (1).xlsx';
-const CSV_FILE = 'C:/Users/subha/Downloads/b2b-lead-platform/sample-companies-50.csv';
+const FILE = 'C:/Users/subha/Downloads/advertisers_2025-11-25-204204.csvCCC (1).xlsx';
 
 function parseSheetDate(v: any): Date | null {
   if (v == null || v === '') return null;
@@ -16,7 +14,7 @@ function parseSheetDate(v: any): Date | null {
   }
   const s = String(v).trim();
   const m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
-  if (m) { const [,d,mo,y,hh='0',mm='0'] = m; const dt = new Date(Date.UTC(+y,+mo-1,+d,+hh,+mm)); return isNaN(dt.getTime()) ? null : dt; }
+  if (m) { const [, d, mo, y, hh='0', mm='0'] = m; const dt = new Date(Date.UTC(+y, +mo - 1, +d, +hh, +mm)); return isNaN(dt.getTime()) ? null : dt; }
   const fb = new Date(s); return isNaN(fb.getTime()) ? null : fb;
 }
 
@@ -26,129 +24,112 @@ function mapStatus(raw: any) {
   return { status: st, statusRaw: s };
 }
 
-function parseCSVLine(line: string): string[] {
-  const r: string[] = []; let cur = ''; let q = false;
-  for (const c of line) { if (c === '"') q = !q; else if (c === ',' && !q) { r.push(cur.trim()); cur = ''; } else cur += c; }
-  r.push(cur.trim()); return r;
-}
-
-function parseSampleCSV(fp: string): any[] {
-  const lines = fs.readFileSync(fp, 'utf-8').split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const headers = parseCSVLine(lines[0]);
-  console.log('   CSV Headers: ' + headers.join(', '));
-  return lines.slice(1).map(line => {
-    const vals = parseCSVLine(line); const rec: any = {};
-    headers.forEach((h, i) => rec[h] = vals[i] || '');
-    return rec;
-  });
+function cleanNum(v: any): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(String(v).replace(/[^\d.]/g, ''));
+  return isNaN(n) || n === 0 ? null : n;
 }
 
 async function main() {
-  console.log('=== Starting Full Database Import ===\n');
+  console.log('=== Starting Full Database Import (Excel only) ===\n');
   const admin = await prisma.user.findUnique({ where: { email: 'admin@bluconnetmedia.com' } });
   if (!admin) throw new Error('Admin user not found - run seed first');
   console.log('Admin: ' + admin.name + ' (' + admin.email + ')\n');
 
-  console.log('1) Clearing database...');
+  console.log('1) Clearing database completely...');
   await prisma.auditLog.deleteMany({});
   await prisma.importLog.deleteMany({});
   const del = await prisma.company.deleteMany({});
   console.log('   Removed ' + del.count + ' companies.\n');
 
-  // Import CSV (all fields)
-  console.log('2) Importing sample-companies-50.csv...');
-  const csvRecords = parseSampleCSV(CSV_FILE);
-  console.log('   Found ' + csvRecords.length + ' records.');
-  let csvIns = 0;
-  for (const rec of csvRecords) {
-    const name = String(rec['Company Name'] ?? '').trim();
-    if (!name) continue;
-    if (await prisma.company.findFirst({ where: { companyName: name } })) { console.log('   Skip dup: ' + name); continue; }
-    await prisma.company.create({
-      data: {
-        companyName: name,
-        website: String(rec['Website'] ?? '').trim() || null,
-        linkedinUrl: String(rec['LinkedIn Link'] ?? '').trim() || null,
-        email: String(rec['Mail ID'] ?? '').trim() || null,
-        employees: Number(rec['Employees']) || null,
-        followers: Number(rec['Followers']) || null,
-        companyType: String(rec['Type'] ?? '').trim() || null,
-        baseGeo: String(rec['Base GEO'] ?? '').trim() || null,
-        address: String(rec['Address'] ?? '').trim() || null,
-        services: String(rec['Services'] ?? '').trim() || null,
-        status: 'ACTIVE', statusRaw: 'Imported from sample CSV',
-        source: 'Sample CSV (50 companies)',
-        addedById: admin.id, lastModifiedById: admin.id,
-      },
-    });
-    csvIns++;
-  }
-  console.log('   Inserted ' + csvIns + ' from CSV.\n');
-
-
-  // Import Excel (785 rows)
-  console.log('3) Importing Excel file...');
-  const wb = XLSX.readFile(EXCEL_FILE);
+  console.log('2) Importing Excel file...');
+  const wb = XLSX.readFile(FILE);
   const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-  console.log('   Found ' + rows.length + ' rows.');
-  let exIns = 0, exSkip = 0;
-  for (const r of rows) {
-    const extId = Number(r['Id']) || null;
+    console.log('   Found ' + rows.length + ' rows.');
+
+  const headers = Object.keys(rows[0] || {});
+  console.log('   Headers found:', JSON.stringify(headers));
+
+  const data = rows.map((r) => {
+    const extId = cleanNum(r['Id']);
     const name = String(r['Company'] ?? '').trim();
-    if (!name) { exSkip++; continue; }
-    const existing = await prisma.company.findFirst({ where: { companyName: name } });
-    if (existing) {
-      const upd: any = {};
-      if (!existing.phone && r['Phone']) upd.phone = String(r['Phone']).trim();
-      if (!existing.city && r['City']) upd.city = String(r['City']).trim();
-      if (!existing.state && r['Region']) upd.state = String(r['Region']).trim();
-      if (!existing.country && r['Country']) upd.country = String(r['Country']).trim();
-      if (!existing.address1 && r['Address 1']) upd.address1 = String(r['Address 1']).trim();
-      if (!existing.address2 && r['Address 2']) upd.address2 = String(r['Address 2']).trim();
-      if (!existing.zipcode && r['Zipcode']) upd.zipcode = String(r['Zipcode']).trim();
-      if (!existing.otherInfo && r['Other']) upd.otherInfo = String(r['Other']).trim();
-      if (Object.keys(upd).length > 0) { upd.lastModifiedById = admin.id; await prisma.company.update({ where: { id: existing.id }, data: upd }); }
-      exSkip++; continue;
-    }
     const { status, statusRaw } = mapStatus(r['Status']);
-    await prisma.company.create({
-      data: {
-        externalId: extId, companyName: name, status, statusRaw: statusRaw || null,
-        phone: String(r['Phone'] ?? '').trim() || null,
-        address1: String(r['Address 1'] ?? '').trim() || null,
-        address2: String(r['Address 2'] ?? '').trim() || null,
-        city: String(r['City'] ?? '').trim() || null,
-        state: String(r['Region'] ?? '').trim() || null,
-        country: String(r['Country'] ?? '').trim() || null,
-        zipcode: String(r['Zipcode'] ?? '').trim() || null,
-        otherInfo: String(r['Other'] ?? '').trim() || null,
-        recordCreated: parseSheetDate(r['Date Created']),
+
+    return {
+      externalId: extId,
+      companyName: name || ('Unnamed Company (' + (extId !== null ? extId : 'n/a') + ')'),
+      status,
+      statusRaw: statusRaw || null,
+      address1: String(r['Address 1'] ?? '').trim() || null,
+      address2: String(r['Address 2'] ?? '').trim() || null,
+      city: String(r['City'] ?? '').trim() || null,
+      state: String(r['Region'] ?? '').trim() || null,
+      country: String(r['Country'] ?? '').trim() || null,
+      otherInfo: String(r['Other'] ?? '').trim() || null,
+      zipcode: String(r['Zipcode'] ?? '').trim() || null,
+      phone: String(r['Phone'] ?? '').trim() || null,
+      contactPersonName: String(r['Contact Person'] ?? '').trim() || null,
+      contactPersonPhone: String(r['Contact Person Phone'] ?? '').trim() || null,
+      telegramTeams: String(r['Telegram / Teams'] ?? r['Telegram'] ?? r['Teams'] ?? '').trim() || null,
+      whatsappNumber: String(r['WhatsApp'] ?? r['WhatsApp Number'] ?? '').trim() || null,
+      whatsappVerified: cleanNum(r['WhatsApp Verified']) === 1,
+      salesNumber: String(r['Sales Number'] ?? '').trim() || null,
+      employees: cleanNum(r['Employees'] ?? r['Employee Count']),
+      followers: cleanNum(r['Followers']),
+      companyType: String(r['Type'] ?? '').trim() || null,
+      industry: String(r['Industry'] ?? '').trim() || null,
+      baseGeo: String(r['Base GEO'] ?? r['Base Geo'] ?? '').trim() || null,
+      address: String(r['Address'] ?? '').trim() || null,
+      services: String(r['Services'] ?? '').trim() || null,
+      revenue: String(r['Revenue'] ?? '').trim() || null,
+      companySize: String(r['Company Size'] ?? '').trim() || null,
+      technologiesUsed: String(r['Technologies Used'] ?? '').trim() || null,
+      targetMarket: String(r['Target Market'] ?? '').trim() || null,
+      leadQuality: String(r['Lead Quality'] ?? r['Quality'] ?? '').trim().toUpperCase() === 'A' ? 'A' :
+                   String(r['Lead Quality'] ?? r['Quality'] ?? '').trim().toUpperCase() === 'B' ? 'B' : 'C',
+      signupIp: String(r['Signup IP'] ?? r['SignupIP'] ?? '').trim() || null,
+      accountManagerId: cleanNum(r['Account Manager ID']),
+      accountManagerName: String(r['Account Manager'] ?? '').trim() || null,
+      employeeName: String(r['Employee Name'] ?? '').trim() || null,
+      recordCreated: parseSheetDate(r['Date Created']),
+      recordModified: parseSheetDate(r['Last Modified']),
+      addedById: admin.id,
+      lastModifiedById: admin.id,
+      source: 'Excel Import (advertisers 2025-11-25)',
+    };
+  });
+
+  console.log('   Inserting ' + data.length + ' rows...');
+  const BATCH = 200;
+  let inserted = 0;
+  for (let i = 0; i < data.length; i += BATCH) {
+    await prisma.company.createMany({ data: data.slice(i, i + BATCH) as any });
+    inserted += Math.min(BATCH, data.length - i);
+    console.log('   ' + inserted + '/' + data.length);
+  }
+
+  // Log unique affiliate managers
+  const uniqueManagers = [...new Set(data.map(d => d.accountManagerName).filter(Boolean))].sort();
+  console.log('   Unique Affiliate Managers (' + uniqueManagers.length + '):');
+  uniqueManagers.forEach(m => console.log('     - ' + m));
 
   await prisma.importLog.create({
     data: {
-      fileName: 'Combined: sample-companies-50.csv + advertisers_2025-11-25.xlsx',
-      userId: admin.id, totalRows: csvRecords.length + rows.length,
-      imported: csvIns + exIns, updated: exSkip, duplicates: exSkip, failed: 0, status: 'SUCCESS',
+      fileName: 'advertisers_2025-11-25-204204.csvCCC (1).xlsx',
+      userId: admin.id,
+      totalRows: rows.length,
+      imported: inserted,
+      updated: 0,
+      duplicates: 0,
+      failed: 0,
+      status: 'SUCCESS',
     },
   });
 
-  const total = await prisma.company.count();
-  console.log('=== Import Complete ===');
-  console.log('Total companies: ' + total + ' (CSV: ' + csvIns + ', Excel: ' + exIns + ', Skipped: ' + exSkip + ')');
+  console.log('\n=== Import Complete ===');
+  console.log('Total companies: ' + await prisma.company.count());
 }
 
-main().catch(e => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
-
-        recordModified: parseSheetDate(r['Last Modified']),
-        signupIp: String(r['Signup IP'] ?? '').trim() || null,
-        accountManagerId: Number(r['Account Manager ID']) || null,
-        accountManagerName: String(r['Account Manager'] ?? '').trim() || null,
-        source: 'Excel Import (advertisers 2025-11-25)',
-        addedById: admin.id, lastModifiedById: admin.id,
-      },
-    });
-    exIns++;
-  }
-  console.log('   Inserted ' + exIns + ' from Excel. Skipped ' + exSkip + '.\n');
-
+main()
+  .catch(e => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

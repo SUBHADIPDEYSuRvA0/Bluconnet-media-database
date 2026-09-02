@@ -1,9 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCompanies, getImportLogs, exportCompaniesCsv, updateCompanyStatus, deleteCompany } from '../lib/api';
-import { Search, Download, X, Edit2, Trash2, ToggleLeft, ToggleRight, Eye, Upload, History } from 'lucide-react';
+import { getCompanies, getImportLogs, exportCompaniesCsv, updateCompanyStatus, deleteCompany, getAccountManagers } from '../lib/api';
+import { Search, Download, Edit2, Trash2, Eye, Upload, History, Building2, Plus, ChevronLeft, ChevronRight, FileDown, FilterX, Users, Mail, Globe, Linkedin, X, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import ImportModal from '../components/ImportModal';
 import CompanyForm from '../components/CompanyForm';
+import { PageHeader, Card, StatusBadge, QualityBadge, EmptyState, Badge, Th, Td, Button, Select } from '../components/ui';
+import { useToast } from '../components/Toast';
 
 export default function SuperAdmin() {
   const [page, setPage] = useState(1);
@@ -12,6 +14,7 @@ export default function SuperAdmin() {
   const [industry, setIndustry] = useState('');
   const [country, setCountry] = useState('');
   const [companyType, setCompanyType] = useState('');
+  const [affiliateManager, setAffiliateManager] = useState('');
   const [editCompany, setEditCompany] = useState<any>(null);
   const [exporting, setExporting] = useState(false);
   const [role, setRole] = useState<string>('');
@@ -19,6 +22,7 @@ export default function SuperAdmin() {
   const [importOpen, setImportOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -30,12 +34,14 @@ export default function SuperAdmin() {
     }
   }, []);
 
-  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const canManage = ['SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'].includes(role);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['companies', page, search, status, industry, country, companyType],
-    queryFn: () => getCompanies({ page, limit: 25, search, status, industry, country, companyType })
+    queryKey: ['companies', page, search, status, industry, country, companyType, affiliateManager],
+    queryFn: () => getCompanies({ page, limit: 50, search, status, industry, country, companyType, accountManager: affiliateManager })
   });
+
+  const { data: accountManagers } = useQuery({ queryKey: ['accountManagers'], queryFn: getAccountManagers });
 
   const { data: importLogs } = useQuery({ 
     queryKey: ['importLogs'], 
@@ -44,12 +50,18 @@ export default function SuperAdmin() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: any) => updateCompanyStatus(id, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: (_: any, vars: any) => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Status updated', `Company marked as ${vars.status}.`);
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteCompany(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['companies'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Company deleted', 'The record has been removed.');
+    },
   });
 
   const resetPageAndFilter = (setter: any) => (e: any) => { setter(e.target.value); setPage(1); };
@@ -57,7 +69,7 @@ export default function SuperAdmin() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const blob = await exportCompaniesCsv({ search, status, industry, country, companyType });
+      const blob = await exportCompaniesCsv({ search, status, industry, country, companyType, accountManager: affiliateManager });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -66,8 +78,12 @@ export default function SuperAdmin() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (err) { alert('Export failed.'); }
-    finally { setExporting(false); }
+      toast.success('Export complete', 'Your CSV file has been downloaded.');
+    } catch (err) {
+      toast.error('Export failed', 'Could not export company data.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const clearFilters = () => { setSearch(''); setStatus(''); setIndustry(''); setCountry(''); setCompanyType(''); setPage(1); };
@@ -84,47 +100,51 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="animate-fade-in space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Super Admin - Company Data List</h1>
-        <div className="flex gap-2">
-          <button onClick={handleExport} disabled={exporting} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50">
-            <Download className="w-4 h-4" /> {exporting ? 'Exporting...' : 'Export'}
-          </button>
-          {isSuperAdmin && (
-            <button onClick={() => setImportOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2">
-              <Upload className="w-4 h-4" /> Import
-            </button>
-          )}
-          {isSuperAdmin && (
-            <button onClick={() => setCreateOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2">
-              + Add Company
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Companies"
+        subtitle={`${data?.total || 0} companies in your database`}
+        icon={<Building2 className="h-5 w-5" />}
+        actions={
+          <>
+            <Button variant="secondary" onClick={handleExport} loading={exporting} icon={<FileDown className="h-4 w-4" />}>
+              Export CSV
+            </Button>
+            {canManage && (
+              <Button variant="success" onClick={() => setImportOpen(true)} icon={<Upload className="h-4 w-4" />}>
+                Import
+              </Button>
+            )}
+            {canManage && (
+              <Button onClick={() => setCreateOpen(true)} icon={<Plus className="h-4 w-4" />}>
+                Add Company
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <Card className="mb-4 p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search companies..."
               value={search}
               onChange={resetPageAndFilter(setSearch)}
-              className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="input-base pl-10"
             />
           </div>
-          <select value={status} onChange={resetPageAndFilter(setStatus)} className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <Select value={status} onChange={resetPageAndFilter(setStatus)}>
             <option value="">All Status</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
             <option value="PENDING">Pending</option>
-          </select>
-          <select value={industry} onChange={resetPageAndFilter(setIndustry)} className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </Select>
+          <Select value={industry} onChange={resetPageAndFilter(setIndustry)}>
             <option value="">All Industries</option>
             <option value="SaaS">SaaS</option>
             <option value="Healthcare">Healthcare</option>
@@ -134,158 +154,290 @@ export default function SuperAdmin() {
             <option value="Real Estate">Real Estate</option>
             <option value="Manufacturing">Manufacturing</option>
             <option value="Other">Other</option>
-          </select>
-          <select value={companyType} onChange={resetPageAndFilter(setCompanyType)} className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </Select>
+          <Select value={companyType} onChange={resetPageAndFilter(setCompanyType)}>
             <option value="">All Types</option>
             <option value="Startup">Startup</option>
             <option value="SME">SME</option>
             <option value="Enterprise">Enterprise</option>
             <option value="Other">Other</option>
-          </select>
-          <button onClick={clearFilters} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50">
+          </Select>
+          <Select value={affiliateManager} onChange={resetPageAndFilter(setAffiliateManager)} disabled={!accountManagers}>
+            <option value="">All Managers</option>
+            {accountManagers?.data?.map((m: any) => (
+          <option key={m.accountManagerName + '|' + m.accountManagerId} value={m.accountManagerName}>
+            {m.accountManagerName}{m.accountManagerId ? ' (ID: ' + m.accountManagerId + ')' : ''}
+          </option>
+        ))}
+          </Select>
+          <Button variant="secondary" onClick={clearFilters} icon={<FilterX className="h-4 w-4" />} className="w-full">
             Clear Filters
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Company Data Table */}
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="w-full min-w-[1400px]">
-          <thead className="bg-gray-50">
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[2400px] table-auto">
+          <thead className="bg-slate-50">
             <tr>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Company Name</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Website</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">LinkedIn Link</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mail ID</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employees</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Followers</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Base GEO</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Address</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Services</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Affiliate Manager</th>
-              <th className="p-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+              <Th className="w-[2%]">#</Th>
+              <Th className="w-[2%]">ID</Th>
+              <Th className="w-[5.5%]">Company</Th>
+              <Th className="w-[5%]">Advertiser Name</Th>
+              <Th className="w-[5.5%]">Website</Th>
+              <Th className="w-[5.5%]">Contact Person</Th>
+              <Th className="w-[5%]">Phone</Th>
+              <Th className="w-[5%]">WhatsApp</Th>
+              <Th className="w-[5%]">Telegram / Teams</Th>
+              <Th className="w-[3.5%]">LinkedIn</Th>
+              <Th className="w-[5.5%]">Email</Th>
+              <Th className="w-[3%]">Employees</Th>
+              <Th className="w-[3%]">Followers</Th>
+              <Th className="w-[3.5%]">Type</Th>
+              <Th className="w-[3.5%]">Base GEO</Th>
+              <Th className="w-[5%]">Address</Th>
+              <Th className="w-[4.5%]">Services</Th>
+              <Th className="w-[4%]">Technology</Th>
+              <Th className="w-[6%]">Affiliate Manager</Th>
+              <Th className="w-[4.5%]">Record Created</Th>
+              <Th className="w-[4.5%]">Last Modified</Th>
+              <Th className="w-[3%]">Quality</Th>
+              <Th className="w-[4%]">Status</Th>
+              <Th className="w-[3%]">Source</Th>
+              <Th className="w-[6%]">Actions</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {isLoading ? (
-              <tr><td colSpan={13} className="p-8 text-center text-gray-500">Loading company data...</td></tr>
-            ) : (!data?.data || data.data.length === 0) ? (
-              <tr><td colSpan={13} className="p-8 text-center text-gray-500">No companies found.</td></tr>
-            ) : (data?.data || []).map((c: any, index: number) => (
-              <tr key={c.id} className="border-t hover:bg-gray-50">
-                <td className="p-3 text-sm text-gray-500">{(page - 1) * 25 + index + 1}</td>
-                <td className="p-3">
-                  <div className="font-semibold text-gray-900 text-sm">{c.companyName}</div>
-                </td>
-                <td className="p-3">
-                  {c.website ? (
-                    <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm truncate max-w-[150px] block">
-                      {c.website}
-                    </a>
-                  ) : <span className="text-gray-400 text-sm">N/A</span>}
-                </td>
-                <td className="p-3">
-                  {c.linkedinUrl ? (
-                    <a href={c.linkedinUrl.startsWith('http') ? c.linkedinUrl : `https://${c.linkedinUrl}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm truncate max-w-[150px] block">
-                      LinkedIn
-                    </a>
-                  ) : <span className="text-gray-400 text-sm">N/A</span>}
-                </td>
-                <td className="p-3">
-                  {c.email ? (
-                    <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline text-sm truncate max-w-[180px] block">
-                      {c.email}
-                    </a>
-                  ) : <span className="text-gray-400 text-sm">N/A</span>}
-                </td>
-                <td className="p-3 text-sm text-gray-600">{c.employees || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600">{c.followers || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600">{c.companyType || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600">{c.baseGeo || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600 truncate max-w-[200px]">{c.address || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600 truncate max-w-[200px]">{c.services || 'N/A'}</td>
-                <td className="p-3 text-sm text-gray-600">{c.accountManagerName || 'N/A'}</td>
-                <td className="p-3">
-                  <div className="flex gap-1">
-                    <button onClick={() => setViewCompany(c)} className="text-green-600 hover:text-green-800 p-1" title="View">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    {isSuperAdmin && <button onClick={() => setEditCompany(c)} className="text-blue-600 hover:text-blue-800 p-1" title="Edit">
-                      <Edit2 className="w-4 h-4" />
-                    </button>}
-                    {isSuperAdmin && <button onClick={() => handleToggleStatus(c)} className="text-orange-600 hover:text-orange-800 p-1" title={c.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}>
-                      {c.status === 'ACTIVE' ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4" />}
-                    </button>}
-                    {isSuperAdmin && <button onClick={() => handleDelete(c.id, c.companyName)} className="text-red-600 hover:text-red-800 p-1" title="Delete">
-                      <Trash2 className="w-4 h-4" />
-                    </button>}
+              <tr>
+                <td colSpan={25} className="p-8">
+                  <div className="flex items-center justify-center gap-3 text-sm text-slate-500">
+                    <Loader2 className="h-5 w-5 animate-spin text-brand-600" /> Loading company data...
                   </div>
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            ) : !data?.data || data.data.length === 0 ? (
+              <tr>
+                <td colSpan={25}>
+                  <EmptyState
+                    icon={<Building2 className="h-6 w-6" />}
+                    title="No companies found"
+                    message="Try adjusting your filters, or import a CSV to get started."
+                  />
+                </td>
+              </tr>
+            ) : (
+              (data?.data || []).map((c: any, index: number) => (
+              <tr key={c.id} onClick={(e) => { e.stopPropagation(); setViewCompany(c); }} className="cursor-pointer transition-colors hover:bg-brand-50/40">
+  <Td className="text-slate-400">{(page - 1) * 50 + index + 1}</Td>
+  <Td className="text-xs font-medium text-slate-500">{c.advertiserId || c.externalId || '—'}</Td>
+  <Td>
+    <div className="flex items-start gap-2.5">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-50 to-violet-50 text-[10px] font-bold text-brand-600 ring-1 ring-brand-100">
+        {(c.companyName || "?").slice(0, 2).toUpperCase()}
       </div>
+      <span className="text-sm font-semibold text-slate-900" title={c.companyName}>{c.companyName}</span>
+    </div>
+  </Td>
+  <Td className="text-sm text-slate-700">{c.advertiserName || '—'}</Td>
+  <Td>
+    {c.website ? (
+      <a href={c.website.startsWith("http") ? c.website : "https://" + c.website} target="_blank" rel="noreferrer" className="truncate text-sm text-brand-600 hover:underline" title={c.website}>
+        {c.website.replace(/^https?:\/\//, "")}
+      </a>
+    ) : (
+      <span className="text-sm text-slate-300">—</span>
+    )}
+  </Td>
+  <Td>
+    <span className="truncate text-sm text-slate-700" title={c.contactPersonName}>{c.contactPersonName || "—"}</span>
+  </Td>
+  <Td>
+    <span className="truncate text-sm text-slate-500" title={c.phone}>{c.phone || "—"}</span>
+  </Td>
+  <Td>
+    {c.whatsappNumber ? (
+      <a href={"https://wa.me/" + c.whatsappNumber.replace(/\D/g, "")} target="_blank" rel="noreferrer" className="truncate text-sm text-emerald-600 hover:underline" title={c.whatsappNumber}>
+        {c.whatsappNumber}
+      </a>
+    ) : (
+      <span className="text-sm text-slate-300">—</span>
+    )}
+  </Td>
+  <Td>
+    <span className="truncate text-sm text-slate-500" title={c.telegramTeams}>{c.telegramTeams || "—"}</span>
+  </Td>
+  <Td>
+    {c.linkedinUrl ? (
+      <a href={c.linkedinUrl.startsWith("http") ? c.linkedinUrl : "https://" + c.linkedinUrl} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">
+        <Linkedin className="h-4 w-4" />
+      </a>
+    ) : (
+      <span className="text-sm text-slate-300">—</span>
+    )}
+  </Td>
+  <Td>
+    <div className="truncate">
+      {c.email ? (
+        <a href={"mailto:" + c.email} className="truncate text-sm text-brand-600 hover:underline" title={c.email}>
+          {c.email}
+        </a>
+      ) : (
+        <span className="text-sm text-slate-300">No email</span>
+      )}
+    </div>
+  </Td>
+  <Td><span className="text-sm text-slate-700">{c.employees || "—"}</span></Td>
+  <Td><span className="text-sm text-slate-700">{c.followers || "—"}</span></Td>
+  <Td><Badge color="gray">{c.companyType || "N/A"}</Badge></Td>
+  <Td><span className="truncate text-sm text-slate-700" title={c.baseGeo}>{c.baseGeo || "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-500" title={c.address}>{c.address || "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-500" title={c.services}>{c.services || "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-500" title={c.technologiesUsed}>{c.technologiesUsed || "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-700" title={c.accountManagerName}>{c.accountManagerName || "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-500">{c.recordCreated ? new Date(c.recordCreated).toLocaleDateString("en-GB") : "—"}</span></Td>
+  <Td><span className="truncate text-sm text-slate-500">{c.recordModified ? new Date(c.recordModified).toLocaleDateString("en-GB") : "—"}</span></Td>
+  <Td><QualityBadge quality={c.leadQuality} /></Td>
+  <Td><StatusBadge status={c.status} /></Td>
+  <Td><span className="truncate text-sm text-slate-500" title={c.source}>{c.source || "—"}</span></Td>
+  <Td className="text-right">
+    <div className="flex justify-end gap-0.5">
+      <button onClick={(e) => { e.stopPropagation(); setViewCompany(c); }} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-600" title="View details">
+        <Eye className="h-4 w-4" />
+      </button>
+      {canManage && (
+        <button onClick={(e) => { e.stopPropagation(); setEditCompany(c); }} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-brand-50 hover:text-brand-600" title="Edit">
+          <Edit2 className="h-4 w-4" />
+        </button>
+      )}
+      {canManage && (
+        <button
+          onClick={(e) => { e.stopPropagation(); handleToggleStatus(c); }}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-amber-50 hover:text-amber-600"
+          title={c.status === "ACTIVE" ? "Deactivate" : "Activate"}
+        >
+          {c.status === "ACTIVE" ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4" />}
+        </button>
+      )}
+      {canManage && (
+        <button onClick={(e) => { e.stopPropagation(); handleDelete(c.id, c.companyName); }} className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600" title="Delete">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  </Td>
+</tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 text-sm text-gray-600">
-        <span>Page {page} of {data?.totalPages || 1} ({data?.total || 0} total companies)</span>
+      <div className="mt-5 flex flex-col items-center justify-between gap-3 text-sm text-slate-500 sm:flex-row">
+        <span>
+          Page <strong>{page}</strong> of <strong>{data?.totalPages || 1}</strong> · {data?.total || 0} companies
+        </span>
         <div className="flex gap-2">
-          <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50">Previous</button>
-          <button disabled={page >= (data?.totalPages || 1)} onClick={() => setPage(p => p + 1)} className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
+          <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage((p: number) => p - 1)} icon={<ChevronLeft className="h-4 w-4" />}>
+            Previous
+          </Button>
+          <Button variant="secondary" size="sm" disabled={page >= (data?.totalPages || 1)} onClick={() => setPage((p: number) => p + 1)}>
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Recent Imports Section */}
       {importLogs?.data?.length > 0 && (
-        <div className="bg-white rounded-lg shadow mt-6 p-4">
-          <h3 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <History className="w-4 h-4" /> Recent Imports
-          </h3>
-          <div className="space-y-2 text-sm">
+        <Card className="mt-6">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 px-5 py-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+              <History className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Recent Imports</h3>
+              <p className="text-xs text-slate-400">Latest CSV / Excel uploads</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
             {importLogs.data.slice(0, 5).map((log: any) => (
-              <div key={log.id} className="flex justify-between border-b pb-2">
-                <span>{log.fileName} <span className="text-gray-500">by {log.user?.name || 'Unknown'}</span></span>
-                <span className="text-gray-600">
-                  <span className="text-green-700">{log.imported} new</span>{' '}
-                  <span className="text-red-700">{log.failed} failed</span>
-                </span>
+              <div key={log.id} className="flex items-center justify-between px-5 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-700">{log.fileName}</p>
+                  <p className="text-xs text-slate-400">
+                    by {log.user?.name || 'Unknown'} · {new Date(log.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {log.imported > 0 && <Badge color="green">{log.imported} new</Badge>}
+                  {log.duplicates > 0 && <Badge color="amber">{log.duplicates} dup</Badge>}
+                  {log.failed > 0 && <Badge color="red">{log.failed} failed</Badge>}
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Modals */}
       {viewCompany && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-4 border-b">
-              <h2 className="text-xl font-bold text-gray-800">Company Details</h2>
-              <button onClick={() => setViewCompany(null)} className="text-gray-500 hover:text-gray-700">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={() => setViewCompany(null)}>
+          <div
+            className="w-full max-w-2xl max-h-[90vh] animate-slide-up overflow-y-auto rounded-2xl bg-white shadow-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/90 px-6 py-4 backdrop-blur">
+              <h2 className="text-lg font-bold text-slate-900">Company Details</h2>
+              <button onClick={() => setViewCompany(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div><span className="text-sm font-medium text-gray-500">ID</span><p className="text-sm">{viewCompany.id}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Company Name</span><p className="text-sm font-semibold">{viewCompany.companyName}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Website</span><p className="text-sm">{viewCompany.website || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">LinkedIn</span><p className="text-sm">{viewCompany.linkedinUrl || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Mail ID</span><p className="text-sm">{viewCompany.email || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Employees</span><p className="text-sm">{viewCompany.employees || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Followers</span><p className="text-sm">{viewCompany.followers || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Type</span><p className="text-sm">{viewCompany.companyType || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Base GEO</span><p className="text-sm">{viewCompany.baseGeo || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Address</span><p className="text-sm">{viewCompany.address || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Services</span><p className="text-sm">{viewCompany.services || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Affiliate Manager</span><p className="text-sm">{viewCompany.accountManagerName || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Industry</span><p className="text-sm">{viewCompany.industry || 'N/A'}</p></div>
-                <div><span className="text-sm font-medium text-gray-500">Status</span><p className="text-sm"><span className={`px-2 py-1 rounded text-xs ${viewCompany.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : viewCompany.status === 'INACTIVE' ? 'bg-gray-100 text-gray-700' : 'bg-yellow-100 text-yellow-800'}`}>{viewCompany.status}</span></p></div>
-                <div><span className="text-sm font-medium text-gray-500">Lead Quality</span><p className="text-sm"><span className={`px-2 py-1 rounded text-xs ${viewCompany.leadQuality === 'A' ? 'bg-blue-100 text-blue-800' : viewCompany.leadQuality === 'B' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{viewCompany.leadQuality}</span></p></div>
-                <div><span className="text-sm font-medium text-gray-500">Country</span><p className="text-sm">{viewCompany.country || 'N/A'}</p></div>
+            <div className="p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 text-sm font-bold text-white">
+                  {(viewCompany.companyName || '?').slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{viewCompany.companyName}</h3>
+                  <p className="text-sm text-slate-400">{viewCompany.industry || 'No industry'}</p>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <QualityBadge quality={viewCompany.leadQuality} />
+                  <StatusBadge status={viewCompany.status} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <DetailItem label="Email" value={viewCompany.email} />
+                <DetailItem label="Website" value={viewCompany.website} />
+                <DetailItem label="LinkedIn" value={viewCompany.linkedinUrl} />
+                <DetailItem label="Phone" value={viewCompany.phone} />
+                <DetailItem label="Sales Number" value={viewCompany.salesNumber} />
+                <DetailItem label="WhatsApp Number" value={viewCompany.whatsappNumber} />
+                <DetailItem label="Telegram / Teams" value={viewCompany.telegramTeams} />
+                <DetailItem label="Contact Person Name" value={viewCompany.contactPersonName} />
+                <DetailItem label="Contact Person Phone" value={viewCompany.contactPersonPhone} />
+                <DetailItem label="Advertiser ID" value={viewCompany.advertiserId} />
+                <DetailItem label="Advertiser Name" value={viewCompany.advertiserName} />
+                <DetailItem label="Employees" value={viewCompany.employees} />
+                <DetailItem label="Followers" value={viewCompany.followers} />
+                <DetailItem label="Type" value={viewCompany.companyType} />
+                <DetailItem label="Base GEO" value={viewCompany.baseGeo} />
+                <DetailItem label="Country" value={viewCompany.country} />
+                <DetailItem label="City" value={viewCompany.city} />
+                <DetailItem label="State" value={viewCompany.state} />
+                <DetailItem label="Affiliate Manager" value={viewCompany.accountManagerName} />
+                <DetailItem label="Address" value={viewCompany.address} />
+                <DetailItem label="Services" value={viewCompany.services} />
+                <DetailItem label="Revenue" value={viewCompany.revenue} />
+                <DetailItem label="Company Size" value={viewCompany.companySize} />
+                <DetailItem label="Technologies Used" value={viewCompany.technologiesUsed} />
+                <DetailItem label="Target Market" value={viewCompany.targetMarket} />
+                <DetailItem label="Record Created" value={viewCompany.recordCreated ? new Date(viewCompany.recordCreated).toLocaleString() : null} />
+                <DetailItem label="Last Modified" value={viewCompany.recordModified ? new Date(viewCompany.recordModified).toLocaleString() : null} />
               </div>
             </div>
           </div>
@@ -295,6 +447,15 @@ export default function SuperAdmin() {
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} />
       <CompanyForm open={createOpen} onClose={() => setCreateOpen(false)} />
       <CompanyForm open={!!editCompany} onClose={() => setEditCompany(null)} editCompany={editCompany} />
+    </div>
+  );
+}
+
+function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-slate-800">{value || 'N/A'}</p>
     </div>
   );
 }

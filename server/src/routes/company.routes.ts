@@ -1,7 +1,7 @@
 ﻿import { Router } from 'express';
 import multer from 'multer';
 import { authenticate, authorize } from '../middleware/auth';
-import { getCompanies, createCompany, updateCompanyStatus, updateCompany, deleteCompany, exportCompanies } from '../controllers/company.controller';
+import { getCompanies, createCompany, updateCompanyStatus, updateCompany, deleteCompany, exportCompanies, getAccountManagers } from '../controllers/company.controller';
 import { importCompanies, getImportLogs } from '../controllers/import.controller';
 
 const router = Router();
@@ -13,6 +13,7 @@ const upload = multer({
 });
 
 router.get('/', authenticate, getCompanies);
+router.get('/account-managers', authenticate, getAccountManagers);
 router.get('/export', authenticate, exportCompanies);
 router.post('/', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER', 'EMPLOYEE'), createCompany);
 router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), updateCompany);

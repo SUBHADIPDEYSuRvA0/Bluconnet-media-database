@@ -1,7 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createCompany, updateCompany } from '../lib/api';
-import { X, Plus, Building2, Save } from 'lucide-react';
+import { Plus, Save, Building2 } from 'lucide-react';
+import { Modal, Field, Input, Select, Button } from './ui';
+import { useToast } from './Toast';
 
 interface CompanyFormProps {
   open: boolean;
@@ -23,12 +25,22 @@ const EMPTY_FORM = {
   industry: '',
   leadQuality: 'C',
   status: 'PENDING',
+  phone: '',
+  salesNumber: '',
+  whatsappNumber: '',
+  telegramTeams: '',
+  contactPersonName: '',
+  contactPersonPhone: '',
+  advertiserId: '',
+  advertiserName: '',
+  accountManagerName: '',
 };
 
 export default function CompanyForm({ open, onClose, editCompany }: CompanyFormProps) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [error, setError] = useState('');
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   useEffect(() => {
     if (editCompany) {
@@ -43,9 +55,18 @@ export default function CompanyForm({ open, onClose, editCompany }: CompanyFormP
         baseGeo: editCompany.baseGeo || '',
         address: editCompany.address || '',
         services: editCompany.services || '',
-        industry: editCompany.industry || '',
+                industry: editCompany.industry || '',
         leadQuality: editCompany.leadQuality || 'C',
         status: editCompany.status || 'PENDING',
+        phone: editCompany.phone || '',
+        salesNumber: editCompany.salesNumber || '',
+        whatsappNumber: editCompany.whatsappNumber || '',
+        telegramTeams: editCompany.telegramTeams || '',
+        contactPersonName: editCompany.contactPersonName || '',
+        contactPersonPhone: editCompany.contactPersonPhone || '',
+        advertiserId: editCompany.advertiserId || '',
+        advertiserName: editCompany.advertiserName || '',
+        accountManagerName: editCompany.accountManagerName || '',
       });
     } else {
       setForm({ ...EMPTY_FORM });
@@ -55,12 +76,13 @@ export default function CompanyForm({ open, onClose, editCompany }: CompanyFormP
   const isEdit = !!editCompany;
 
   const mutation = useMutation({
-    mutationFn: (payload: any) => isEdit ? updateCompany(editCompany.id, payload) : createCompany(payload),
+    mutationFn: (payload: any) => (isEdit ? updateCompany(editCompany.id, payload) : createCompany(payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success(isEdit ? 'Company updated' : 'Company added', isEdit ? 'Your changes have been saved.' : 'The company was added to your database.');
       handleClose();
     },
-    onError: () => setError(isEdit ? "Failed to update company." : "Failed to add company."),
+    onError: () => setError(isEdit ? 'Failed to update company.' : 'Failed to add company.'),
   });
 
   if (!open) return null;
@@ -89,8 +111,17 @@ export default function CompanyForm({ open, onClose, editCompany }: CompanyFormP
       address: form.address.trim() || null,
       services: form.services.trim() || null,
       industry: form.industry.trim() || null,
-      leadQuality: form.leadQuality,
+            leadQuality: form.leadQuality,
       status: form.status,
+      phone: form.phone.trim() || null,
+      salesNumber: form.salesNumber.trim() || null,
+      whatsappNumber: form.whatsappNumber.trim() || null,
+      telegramTeams: form.telegramTeams.trim() || null,
+      contactPersonName: form.contactPersonName.trim() || null,
+      contactPersonPhone: form.contactPersonPhone.trim() || null,
+      advertiserId: form.advertiserId.trim() || null,
+      advertiserName: form.advertiserName.trim() || null,
+      accountManagerName: form.accountManagerName.trim() || null,
     };
     mutation.mutate(payload);
   };
@@ -103,93 +134,127 @@ export default function CompanyForm({ open, onClose, editCompany }: CompanyFormP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-5 border-b">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-blue-600" /> {isEdit ? 'Edit Company' : 'Add Company'}
-          </h2>
-          <button onClick={handleClose} className="text-gray-500 hover:text-gray-700"><X className="w-5 h-5" /></button>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEdit ? 'Edit Company' : 'Add Company'}
+      icon={<Building2 className="h-5 w-5 text-brand-600" />}
+      maxWidth="max-w-2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Company Name" required>
+            <Input name="companyName" value={form.companyName} onChange={handleChange} placeholder="Acme Inc." required />
+          </Field>
+          <Field label="Type">
+            <Select name="companyType" value={form.companyType} onChange={handleChange}>
+              <option value="">Select type</option>
+              <option value="B2B">B2B</option>
+              <option value="B2C">B2C</option>
+              <option value="SaaS">SaaS</option>
+              <option value="Enterprise">Enterprise</option>
+              <option value="Other">Other</option>
+            </Select>
+          </Field>
+          <Field label="Website">
+            <Input name="website" value={form.website} onChange={handleChange} placeholder="https://acme.com" />
+          </Field>
+          <Field label="LinkedIn">
+            <Input name="linkedinUrl" value={form.linkedinUrl} onChange={handleChange} placeholder="linkedin.com/company/acme" />
+          </Field>
+          <Field label="Email">
+            <Input name="email" type="email" value={form.email} onChange={handleChange} placeholder="info@acme.com" />
+          </Field>
+          <Field label="Industry">
+            <Input name="industry" value={form.industry} onChange={handleChange} placeholder="SaaS" />
+          </Field>
+          <Field label="Employees">
+            <Input name="employees" type="number" min={0} value={form.employees} onChange={handleChange} />
+          </Field>
+          <Field label="Followers">
+            <Input name="followers" type="number" min={0} value={form.followers} onChange={handleChange} />
+          </Field>
+          <Field label="Base GEO">
+            <Input name="baseGeo" value={form.baseGeo} onChange={handleChange} placeholder="USA" />
+          </Field>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Company Name *" required>
-              <input name="companyName" value={form.companyName} onChange={handleChange} className={inputCls} required />
-            </Field>
-            <Field label="Type">
-              <select name="companyType" value={form.companyType} onChange={handleChange} className={inputCls}>
-                <option value="">Select type</option>
-                <option value="B2B">B2B</option>
-                <option value="B2C">B2C</option>
-                <option value="SaaS">SaaS</option>
-                <option value="Enterprise">Enterprise</option>
-                <option value="Other">Other</option>
-              </select>
-            </Field>
-            <Field label="Website">
-              <input name="website" value={form.website} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="LinkedIn">
-              <input name="linkedinUrl" value={form.linkedinUrl} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Email">
-              <input name="email" type="email" value={form.email} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Industry">
-              <input name="industry" value={form.industry} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Employees">
-              <input name="employees" type="number" min="0" value={form.employees} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Followers">
-              <input name="followers" type="number" min="0" value={form.followers} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Base GEO">
-              <input name="baseGeo" value={form.baseGeo} onChange={handleChange} className={inputCls} />
-            </Field>
-            <Field label="Lead Quality">
-              <select name="leadQuality" value={form.leadQuality} onChange={handleChange} className={inputCls}>
-                <option value="A">A (High)</option>
-                <option value="B">B (Medium)</option>
-                <option value="C">C (Low)</option>
-              </select>
-            </Field>
-            <Field label="Status">
-              <select name="status" value={form.status} onChange={handleChange} className={inputCls}>
-                <option value="ACTIVE">Active</option>
-                <option value="PENDING">Pending</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </Field>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Lead Quality">
+            <Select name="leadQuality" value={form.leadQuality} onChange={handleChange}>
+              <option value="A">A (High)</option>
+              <option value="B">B (Medium)</option>
+              <option value="C">C (Low)</option>
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select name="status" value={form.status} onChange={handleChange}>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+              <option value="INACTIVE">Inactive</option>
+            </Select>
+          </Field>
+                    <Field label="Contact Person Name">
+            <Input name="contactPersonName" value={form.contactPersonName} onChange={handleChange} />
+          </Field>
+          <Field label="Contact Person Phone">
+            <Input name="contactPersonPhone" value={form.contactPersonPhone} onChange={handleChange} />
+          </Field>
+          <Field label="Advertiser ID">
+            <Input name="advertiserId" value={form.advertiserId} onChange={handleChange} placeholder="e.g. ADV-1023" />
+          </Field>
+          <Field label="Advertiser Name">
+            <Input name="advertiserName" value={form.advertiserName} onChange={handleChange} placeholder="e.g. Acme Advertising" />
+          </Field>
+          <Field label="Phone">
+            <Input name="phone" value={form.phone} onChange={handleChange} />
+          </Field>
+          <Field label="Telegram / Teams">
+            <Input name="telegramTeams" value={form.telegramTeams} onChange={handleChange} />
+          </Field>
+          <Field label="WhatsApp Number">
+            <Input name="whatsappNumber" value={form.whatsappNumber} onChange={handleChange} />
+          </Field>
+          <Field label="Sales Number">
+            <Input name="salesNumber" value={form.salesNumber} onChange={handleChange} />
+          </Field>
+          <Field label="Affiliate Manager">
+            <Input name="accountManagerName" value={form.accountManagerName} onChange={handleChange} placeholder="e.g. Anwesha Chakraborty" />
+          </Field>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Lead Quality">
+            <Select name="leadQuality" value={form.leadQuality} onChange={handleChange}>
+              <option value="A">A (High)</option>
+              <option value="B">B (Medium)</option>
+              <option value="C">C (Low)</option>
+            </Select>
+          </Field>
+          <Field label="Status">
+            <Select name="status" value={form.status} onChange={handleChange}>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+              <option value="INACTIVE">Inactive</option>
+            </Select>
+          </Field>
           <Field label="Address">
-            <input name="address" value={form.address} onChange={handleChange} className={inputCls} />
+            <Input name="address" value={form.address} onChange={handleChange} />
           </Field>
           <Field label="Services">
-            <textarea name="services" value={form.services} onChange={handleChange} rows={2} className={inputCls} />
+            <Input name="services" value={form.services} onChange={handleChange} />
           </Field>
-          {error && <div className="bg-red-100 text-red-700 p-3 rounded text-sm">{error}</div>}
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={handleClose} className="px-4 py-2 border rounded-md text-gray-600 hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={mutation.isPending} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
-              {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {mutation.isPending ? 'Saving...' : isEdit ? 'Update' : 'Add Company'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+        </div>
 
-const inputCls = "w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none";
-const labelCls = "block text-sm font-medium text-gray-700 mb-1";
+        {error && <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className={labelCls}>{label}{required && <span className="text-red-500"> *</span>}</label>
-      {children}
-    </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button type="submit" loading={mutation.isPending} icon={isEdit ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}>
+            {isEdit ? 'Update' : 'Add Company'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

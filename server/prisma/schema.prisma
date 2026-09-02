@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -65,6 +65,11 @@ model Company {
    salesNumber       String?
    phone             String?
    whatsappNumber    String?
+   advertiserId      String?
+   advertiserName    String?
+   contactPersonName String?
+   contactPersonPhone String?
+   telegramTeams     String?
    whatsappVerified  Boolean      @default(false)
    employees         Int?
    followers         Int?
@@ -118,6 +123,8 @@ model Company {
    @@index([status])
    @@index([leadQuality])
    @@index([employeeName])
+   @@index([accountManagerName])
+   @@index([accountManagerId])
 }
 
 model AuditLog {

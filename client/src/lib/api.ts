@@ -49,6 +49,11 @@ export const getImportLogs = async () => {
   return res.data;
 };
 
+export const getAccountManagers = async () => {
+  const res = await api.get('/companies/account-managers');
+  return res.data;
+};
+
 export const createCompany = async (data: any) => {
   const res = await api.post('/companies', data);
   return res.data;

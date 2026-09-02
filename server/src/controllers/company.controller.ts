@@ -3,13 +3,32 @@ import { prisma } from '../index';
 import { AuthRequest } from '../middleware/auth';
 
 function buildWhere(req: AuthRequest) {
-  const { search, country, industry, status, leadQuality, companyType, city, state } = req.query;
+  const { search, country, industry, status, leadQuality, companyType, city, state, accountManager } = req.query;
   const where: any = {};
-  if (search) where.OR = [
-    { companyName: { contains: search as string, mode: 'insensitive' } },
-    { email: { contains: search as string, mode: 'insensitive' } },
-    { salesNumber: { contains: search as string } }
-  ];
+  if (search) {
+    const term = search as string;
+    where.OR = [
+      { companyName: { contains: term, mode: 'insensitive' } },
+      { advertiserName: { contains: term, mode: 'insensitive' } },
+      { advertiserId: { contains: term, mode: 'insensitive' } },
+      { email: { contains: term, mode: 'insensitive' } },
+      { website: { contains: term, mode: 'insensitive' } },
+      { phone: { contains: term, mode: 'insensitive' } },
+      { salesNumber: { contains: term, mode: 'insensitive' } },
+      { whatsappNumber: { contains: term, mode: 'insensitive' } },
+      { telegramTeams: { contains: term, mode: 'insensitive' } },
+      { linkedinUrl: { contains: term, mode: 'insensitive' } },
+      { country: { contains: term, mode: 'insensitive' } },
+      { city: { contains: term, mode: 'insensitive' } },
+      { state: { contains: term, mode: 'insensitive' } },
+      { address: { contains: term, mode: 'insensitive' } },
+      { services: { contains: term, mode: 'insensitive' } },
+      { accountManagerName: { contains: term, mode: 'insensitive' } },
+      { companyType: { contains: term, mode: 'insensitive' } },
+      { baseGeo: { contains: term, mode: 'insensitive' } },
+      { industry: { contains: term, mode: 'insensitive' } },
+    ];
+  }
   if (country) where.country = country;
   if (city) where.city = city;
   if (state) where.state = state;
@@ -17,6 +36,7 @@ function buildWhere(req: AuthRequest) {
   if (status) where.status = status;
   if (leadQuality) where.leadQuality = leadQuality;
   if (companyType) where.companyType = companyType;
+  if (accountManager) where.accountManagerName = accountManager;
 
   // RBAC: Employees only see their own (simplified to own for this demo)
   if (req.user?.role === 'EMPLOYEE') {
@@ -24,6 +44,21 @@ function buildWhere(req: AuthRequest) {
   }
   return where;
 }
+
+// Returns the distinct set of affiliate / account managers for the filter dropdown.
+export const getAccountManagers = async (req: AuthRequest, res: Response) => {
+  try {
+    const managers = await prisma.company.findMany({
+      where: { accountManagerName: { not: null } },
+      select: { accountManagerName: true, accountManagerId: true },
+      distinct: ['accountManagerName'],
+      orderBy: { accountManagerName: 'asc' },
+    });
+    res.json({ success: true, data: managers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch account managers' });
+  }
+};
 
 export const getCompanies = async (req: AuthRequest, res: Response) => {
   try {
