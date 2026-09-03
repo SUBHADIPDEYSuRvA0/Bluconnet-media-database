@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth.routes';
 import companyRoutes from './routes/company.routes';
 import userRoutes from './routes/user.routes';
-import statusRoutes from './routes.status.routes';
+import statusRoutes from './routes/status.routes';
 
 dotenv.config();
 export const prisma = new PrismaClient();
