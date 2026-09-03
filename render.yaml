@@ -48,9 +48,4 @@ services:
         # Update this to your backend URL after deploying backend
         value: https://bluconnet-backend.onrender.com
 
-# Optional: Create a PostgreSQL database on Render
-databases:
-  - name: bluconnet-database
-    plan: free
-    databaseName: bluconnet
-    user: admin
+# Production database is Neon PostgreSQL. Set DATABASE_URL in Render.

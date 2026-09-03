@@ -19,9 +19,10 @@ app.use(helmet({
 }));
 
 // CORS configuration
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -66,21 +67,30 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+const PORT = Number(process.env.PORT) || 4000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled request error:', error);
+  res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Shutting down gracefully...');
   await prisma.$disconnect();
-  process.exit(0);
+  server.close(() => process.exit(0));
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received. Shutting down gracefully...');
   await prisma.$disconnect();
-  process.exit(0);
+  server.close(() => process.exit(0));
 });
