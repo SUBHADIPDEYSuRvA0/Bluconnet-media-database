@@ -109,6 +109,16 @@ const FIELD_ALIASES = {
     optin: 'optIn',
     donotcontact: 'doNotContact',
     dnc: 'doNotContact',
+    contactpersonphonenumber: 'contactPersonPhone',
+    contactpersonphone: 'contactPersonPhone',
+    contactname: 'contactPersonName',
+    contactpersonname: 'contactPersonName',
+    advertiserid: 'advertiserId',
+    advertisername: 'advertiserName',
+    advertiser: 'advertiserName',
+    telegram: 'telegramTeams',
+    teams: 'telegramTeams',
+    telegramteams: 'telegramTeams',
 };
 // Fields that are safely writable on a Company during import.
 const WRITABLE_FIELDS = new Set([
@@ -119,6 +129,8 @@ const WRITABLE_FIELDS = new Set([
     'complianceGdpr', 'complianceCcpa', 'optIn', 'doNotContact',
     'externalId', 'address1', 'address2', 'zipcode', 'otherInfo', 'phone',
     'signupIp', 'accountManagerId', 'accountManagerName',
+    'contactPersonName', 'contactPersonPhone', 'telegramTeams',
+    'advertiserId', 'advertiserName', 'recordCreated', 'recordModified',
 ]);
 const normalizeKey = (key) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 const parseBoolean = (v) => {
@@ -163,48 +175,117 @@ const clampInt = (v) => {
     const n = Number(String(v).replace(/[^\d]/g, ''));
     return Number.isFinite(n) ? n : undefined;
 };
+// Fields stored as integers in the DB — blanks stay null (never 'N/A').
+const INT_FIELDS = new Set(['externalId', 'accountManagerId', 'employees', 'followers']);
+// Fields stored as booleans — blanks stay undefined.
+const BOOLEAN_FIELDS = new Set(['whatsappVerified', 'complianceGdpr', 'complianceCcpa', 'optIn', 'doNotContact']);
+// Fields stored as DateTime — parsed from sheet values.
+const DATE_FIELDS = new Set(['recordCreated', 'recordModified']);
+/** Accepts a parsed Date only if it's real and within a sane range (1970-2100). */
+const sane = (d) => {
+    if (isNaN(d.getTime()))
+        return null;
+    const y = d.getFullYear();
+    return y >= 1970 && y <= 2100 ? d : null;
+};
+/**
+ * Converts messy spreadsheet date values into real Dates.
+ * Handles: epoch seconds, Excel serial days, "DD-MM-YYYY HH:mm", ISO strings.
+ * Junk numbers (phones, ids, negative epochs) resolve to null, never a bogus year.
+ */
+function parseSheetDate(v) {
+    if (v === undefined || v === null || v === '')
+        return null;
+    // Numeric cells / numeric strings ("45627", "-62169984000", 1733394356…).
+    const num = typeof v === 'number' ? v : /^\d+(\.\d+)?$/.test(String(v).trim()) ? Number(String(v).trim()) : null;
+    if (num !== null) {
+        if (num <= 0)
+            return null;
+        if (num > 1e9 && num < 4.1e9)
+            return sane(new Date(num * 1000)); // epoch seconds
+        if (num >= 25569 && num < 60000) { // Excel serial (days since 1899-12-30)
+            return sane(new Date(Math.round((num - 25569) * 86400000)));
+        }
+        return null;
+    }
+    const s = String(v).trim();
+    // "21-05-2024 09:38"  (DD-MM-YYYY HH:mm)
+    const m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (m) {
+        const [, d, mo, y, hh = '0', mm = '0'] = m;
+        return sane(new Date(Date.UTC(+y, +mo - 1, +d, +hh, +mm)));
+    }
+    return sane(new Date(s));
+}
+// Fields that never get the 'N/A' fill (enums with DB defaults, or the row key).
+const SKIP_NA_FIELDS = new Set(['companyName', 'status', 'leadQuality', 'source']);
 /**
  * Normalizes a flat row object (keyed by header) into a Company-shaped object.
- * Keys that don't map to a known field are ignored. Returns null if no company
- * name could be determined.
+ *
+ * - Blank cells in text fields become 'N/A' (fresh imports only; updates skip them).
+ * - Int / boolean / date / enum fields are type-converted; blanks stay empty.
+ * - Columns that don't match any known header are preserved in `otherInfo`
+ *   ("Header: value | Header: value") so no sheet data is ever lost.
+ * - Rows without a company name fall back to advertiser name, then a row label.
  */
-function mapRow(row) {
+function mapRow(row, rowNumber = 0, action = 'skip') {
     const mapped = {};
+    const extras = [];
     for (const [rawKey, rawValue] of Object.entries(row)) {
-        if (rawValue === undefined || rawValue === null)
+        const key = normalizeKey(rawKey);
+        const field = FIELD_ALIASES[key];
+        const value = rawValue === undefined || rawValue === null ? '' : String(rawValue).trim();
+        // Unknown column → keep its data instead of dropping it.
+        if (!field || !WRITABLE_FIELDS.has(field)) {
+            if (key && value)
+                extras.push(`${rawKey}: ${value}`);
             continue;
-        const field = FIELD_ALIASES[normalizeKey(rawKey)];
-        if (!field || !WRITABLE_FIELDS.has(field))
-            continue;
-        if (field === 'employees' || field === 'followers') {
-            const n = clampInt(rawValue);
+        }
+        if (DATE_FIELDS.has(field)) {
+            const d = parseSheetDate(value);
+            if (d)
+                mapped[field] = d;
+        }
+        else if (INT_FIELDS.has(field)) {
+            const n = clampInt(value);
             if (n !== undefined)
                 mapped[field] = n;
         }
-        else if (field === 'leadQuality') {
-            const q = parseLeadQuality(rawValue);
-            if (q)
-                mapped[field] = q;
-        }
-        else if (field === 'status') {
-            const s = parseStatus(rawValue);
-            if (s)
-                mapped[field] = s;
-        }
-        else if (field === 'whatsappVerified' || field === 'complianceGdpr' || field === 'complianceCcpa' || field === 'optIn' || field === 'doNotContact') {
-            const b = parseBoolean(rawValue);
+        else if (BOOLEAN_FIELDS.has(field)) {
+            const b = parseBoolean(value);
             if (b !== undefined)
                 mapped[field] = b;
         }
-        else {
-            const s = String(rawValue).trim();
+        else if (field === 'status') {
+            const s = parseStatus(value);
             if (s)
                 mapped[field] = s;
         }
+        else if (field === 'leadQuality') {
+            const q = parseLeadQuality(value);
+            if (q)
+                mapped[field] = q;
+        }
+        else if (value) {
+            mapped[field] = value;
+        }
+        else if (action === 'skip' && !SKIP_NA_FIELDS.has(field)) {
+            mapped[field] = 'N/A'; // fill blank text cells on fresh imports
+        }
     }
-    const companyName = mapped.companyName;
-    if (!companyName)
-        return null;
+    if (extras.length) {
+        const extra = extras.join(' | ');
+        mapped.otherInfo = mapped.otherInfo && mapped.otherInfo !== 'N/A'
+            ? `${mapped.otherInfo} | ${extra}`
+            : extra;
+    }
+    // Best-effort company name so no row is silently dropped.
+    if (!mapped.companyName) {
+        mapped.companyName =
+            mapped.advertiserName && mapped.advertiserName !== 'N/A'
+                ? mapped.advertiserName
+                : `Unnamed Company (Row ${rowNumber})`;
+    }
     return mapped;
 }
 const getImportLogs = async (req, res) => {
@@ -261,12 +342,7 @@ const importCompanies = async (req, res) => {
         const failedRows = [];
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const mapped = mapRow(row);
-            if (!mapped) {
-                failed++;
-                failedRows.push({ row: i + 2, reason: 'Missing company name' });
-                continue;
-            }
+            const mapped = mapRow(row, i + 2, action);
             // Build duplicate-detection query (name / email / phone / whatsapp).
             const OR = [{ companyName: { equals: mapped.companyName, mode: 'insensitive' } }];
             if (mapped.email)
@@ -278,12 +354,19 @@ const importCompanies = async (req, res) => {
             const existing = await index_1.prisma.company.findFirst({ where: { OR } });
             if (existing) {
                 if (action === 'update') {
+                    // Never overwrite real data with the 'N/A' blank marker.
+                    const clean = {};
+                    for (const [k, v] of Object.entries(mapped)) {
+                        if (v === 'N/A')
+                            continue;
+                        clean[k] = v;
+                    }
                     await index_1.prisma.company.update({
                         where: { id: existing.id },
-                        data: { ...mapped, lastModifiedById: req.user.id },
+                        data: { ...clean, lastModifiedById: req.user.id },
                     });
                     await index_1.prisma.auditLog.create({
-                        data: { userId: req.user.id, companyId: existing.id, action: 'UPDATE', fieldName: 'IMPORT', newValue: JSON.stringify(mapped) },
+                        data: { userId: req.user.id, companyId: existing.id, action: 'UPDATE', fieldName: 'IMPORT', newValue: JSON.stringify(clean) },
                     });
                     updated++;
                 }

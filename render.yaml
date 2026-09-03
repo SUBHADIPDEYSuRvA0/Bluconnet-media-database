@@ -27,8 +27,8 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        # Set this to your frontend URL after deploying frontend
-        value: https://bluconnet-frontend.onrender.com
+        # Set this to the deployed Vercel frontend URL in Render after deployment.
+        sync: false
 
   # Frontend Static Site
   - type: web

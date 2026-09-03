@@ -1,16 +1,34 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportCompanies = exports.updateCompanyStatus = exports.createCompany = exports.getCompanies = void 0;
+exports.exportCompanies = exports.deleteCompany = exports.updateCompany = exports.updateCompanyStatus = exports.createCompany = exports.getCompanies = exports.getAccountManagers = void 0;
 const index_1 = require("../index");
 function buildWhere(req) {
-    const { search, country, industry, status, leadQuality, companyType, city, state } = req.query;
+    const { search, country, industry, status, leadQuality, companyType, city, state, accountManager } = req.query;
     const where = {};
-    if (search)
+    if (search) {
+        const term = search;
         where.OR = [
-            { companyName: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-            { salesNumber: { contains: search } }
+            { companyName: { contains: term, mode: 'insensitive' } },
+            { advertiserName: { contains: term, mode: 'insensitive' } },
+            { advertiserId: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+            { website: { contains: term, mode: 'insensitive' } },
+            { phone: { contains: term, mode: 'insensitive' } },
+            { salesNumber: { contains: term, mode: 'insensitive' } },
+            { whatsappNumber: { contains: term, mode: 'insensitive' } },
+            { telegramTeams: { contains: term, mode: 'insensitive' } },
+            { linkedinUrl: { contains: term, mode: 'insensitive' } },
+            { country: { contains: term, mode: 'insensitive' } },
+            { city: { contains: term, mode: 'insensitive' } },
+            { state: { contains: term, mode: 'insensitive' } },
+            { address: { contains: term, mode: 'insensitive' } },
+            { services: { contains: term, mode: 'insensitive' } },
+            { accountManagerName: { contains: term, mode: 'insensitive' } },
+            { companyType: { contains: term, mode: 'insensitive' } },
+            { baseGeo: { contains: term, mode: 'insensitive' } },
+            { industry: { contains: term, mode: 'insensitive' } },
         ];
+    }
     if (country)
         where.country = country;
     if (city)
@@ -25,12 +43,30 @@ function buildWhere(req) {
         where.leadQuality = leadQuality;
     if (companyType)
         where.companyType = companyType;
+    if (accountManager)
+        where.accountManagerName = accountManager;
     // RBAC: Employees only see their own (simplified to own for this demo)
     if (req.user?.role === 'EMPLOYEE') {
         where.addedById = req.user.id;
     }
     return where;
 }
+// Returns the distinct set of affiliate / account managers for the filter dropdown.
+const getAccountManagers = async (req, res) => {
+    try {
+        const managers = await index_1.prisma.company.findMany({
+            where: { accountManagerName: { not: null } },
+            select: { accountManagerName: true, accountManagerId: true },
+            distinct: ['accountManagerName'],
+            orderBy: { accountManagerName: 'asc' },
+        });
+        res.json({ success: true, data: managers });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to fetch account managers' });
+    }
+};
+exports.getAccountManagers = getAccountManagers;
 const getCompanies = async (req, res) => {
     try {
         const { page = 1, limit = 25 } = req.query;
@@ -93,6 +129,49 @@ const updateCompanyStatus = async (req, res) => {
     }
 };
 exports.updateCompanyStatus = updateCompanyStatus;
+// Update company (full edit)
+const updateCompany = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const data = req.body;
+        const company = await index_1.prisma.company.findUnique({ where: { id } });
+        if (!company) {
+            return res.status(404).json({ success: false, message: 'Company not found' });
+        }
+        const updated = await index_1.prisma.company.update({
+            where: { id },
+            data: { ...data, lastModifiedById: req.user.id },
+            include: { addedBy: { select: { name: true } }, lastModifiedBy: { select: { name: true } } },
+        });
+        await index_1.prisma.auditLog.create({
+            data: { userId: req.user.id, companyId: id, action: 'UPDATE', fieldName: 'ALL', newValue: JSON.stringify(data) },
+        });
+        res.json({ success: true, data: updated });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to update company' });
+    }
+};
+exports.updateCompany = updateCompany;
+// Delete company
+const deleteCompany = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const company = await index_1.prisma.company.findUnique({ where: { id } });
+        if (!company) {
+            return res.status(404).json({ success: false, message: 'Company not found' });
+        }
+        await index_1.prisma.company.delete({ where: { id } });
+        await index_1.prisma.auditLog.create({
+            data: { userId: req.user.id, companyId: id, action: 'DELETE', fieldName: 'ALL', oldValue: company.companyName },
+        });
+        res.json({ success: true, message: 'Company deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to delete company' });
+    }
+};
+exports.deleteCompany = deleteCompany;
 // CSV-safe formatting
 const csvVal = (v) => {
     if (v === null || v === undefined)

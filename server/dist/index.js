@@ -8,20 +8,74 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
 const client_1 = require("@prisma/client");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const company_routes_1 = __importDefault(require("./routes/company.routes"));
+const user_routes_1 = __importDefault(require("./routes/user.routes"));
 dotenv_1.default.config();
 exports.prisma = new client_1.PrismaClient();
 const app = (0, express_1.default)();
-app.use((0, helmet_1.default)());
-app.use((0, cors_1.default)({ origin: ['http://localhost:3000', 'http://localhost:5173'], credentials: true }));
+// Security middleware
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+}));
+// CORS configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:3000', 'http://localhost:5173'];
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+}));
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true }));
+// API Routes
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/companies', company_routes_1.default);
-app.get('/api/health', (req, res) => res.json({ status: 'OK', timestamp: new Date().toISOString() }));
+app.use('/api/users', user_routes_1.default);
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+    });
+});
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+    const clientDistPath = path_1.default.join(__dirname, '../../client/dist');
+    app.use(express_1.default.static(clientDistPath));
+    // Serve index.html for all non-API routes (SPA support)
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path_1.default.join(clientDistPath, 'index.html'));
+        }
+    });
+}
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    await exports.prisma.$disconnect();
+    process.exit(0);
+});
+process.on('SIGINT', async () => {
+    console.log('SIGINT received. Shutting down gracefully...');
+    await exports.prisma.$disconnect();
+    process.exit(0);
 });

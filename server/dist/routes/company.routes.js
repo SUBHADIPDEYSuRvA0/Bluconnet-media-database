@@ -15,9 +15,12 @@ const upload = (0, multer_1.default)({
     limits: { fileSize: maxSize },
 });
 router.get('/', auth_1.authenticate, company_controller_1.getCompanies);
+router.get('/account-managers', auth_1.authenticate, company_controller_1.getAccountManagers);
 router.get('/export', auth_1.authenticate, company_controller_1.exportCompanies);
 router.post('/', auth_1.authenticate, (0, auth_1.authorize)('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER', 'EMPLOYEE'), company_controller_1.createCompany);
+router.put('/:id', auth_1.authenticate, (0, auth_1.authorize)('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), company_controller_1.updateCompany);
 router.patch('/:id/status', auth_1.authenticate, (0, auth_1.authorize)('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), company_controller_1.updateCompanyStatus);
+router.delete('/:id', auth_1.authenticate, (0, auth_1.authorize)('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), company_controller_1.deleteCompany);
 router.post('/import', auth_1.authenticate, (0, auth_1.authorize)('SUPER_ADMIN', 'ADMIN', 'DATA_MANAGER'), upload.single('file'), import_controller_1.importCompanies);
 router.get('/import/logs', auth_1.authenticate, import_controller_1.getImportLogs);
 exports.default = router;
