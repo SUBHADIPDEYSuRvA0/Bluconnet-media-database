@@ -27,7 +27,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        value: https://media-database-6z37304h4-subhadip-deys-projects.vercel.app
+        value: https://media-database-6z37304h4-subhadip-deys-projects.vercel.app,https://media-database-6z37304h4-subhadip-deys-projects.vercel.app/
 
   # Frontend Static Site
   - type: web
