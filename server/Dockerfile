@@ -1,8 +1,11 @@
 ﻿# Backend Dockerfile for Production
-FROM node:18-alpine
+FROM node:18-slim
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+# Install OpenSSL and other dependencies for Prisma
+RUN apt-get update && apt-get install -y \
+    openssl \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
