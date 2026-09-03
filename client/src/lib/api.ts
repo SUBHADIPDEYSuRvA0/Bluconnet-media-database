@@ -1,13 +1,13 @@
 ﻿import axios from 'axios';
 
 const api = axios.create({ 
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://bluconnet-backend.onrender.com/api',
   withCredentials: true
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) config.headers.Authorization = 'Bearer ' + token;
   return config;
 });
 
@@ -63,17 +63,17 @@ export const createCompany = async (data: any) => {
 };
 
 export const updateCompany = async (id: string, data: any) => {
-  const res = await api.put(`/companies/${id}`, data);
+  const res = await api.put('/companies/' + id, data);
   return res.data;
 };
 
 export const updateCompanyStatus = async (id: string, status: string) => {
-  const res = await api.patch(`/companies/${id}/status`, { status });
+  const res = await api.patch('/companies/' + id + '/status', { status });
   return res.data;
 };
 
 export const deleteCompany = async (id: string) => {
-  const res = await api.delete(`/companies/${id}`);
+  const res = await api.delete('/companies/' + id);
   return res.data;
 };
 
@@ -93,22 +93,22 @@ export const createEmployee = async (data: any) => {
 };
 
 export const updateEmployee = async (id: string, data: any) => {
-  const res = await api.patch(`/users/${id}`, data);
+  const res = await api.patch('/users/' + id, data);
   return res.data;
 };
 
 export const changeEmployeePassword = async (id: string, password: string) => {
-  const res = await api.patch(`/users/${id}/password`, { password });
+  const res = await api.patch('/users/' + id + '/password', { password });
   return res.data;
 };
 
 export const toggleEmployeeStatus = async (id: string) => {
-  const res = await api.patch(`/users/${id}/status`);
+  const res = await api.patch('/users/' + id + '/status');
   return res.data;
 };
 
 export const deleteEmployee = async (id: string) => {
-  const res = await api.delete(`/users/${id}`);
+  const res = await api.delete('/users/' + id);
   return res.data;
 };
 
