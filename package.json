@@ -5,17 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "build": "npm run build --prefix server && npm run build --prefix client",
-    "build:client": "npm run build --prefix client",
-    "build:server": "npm run build --prefix server",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
     "start": "node server/dist/index.js",
     "server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",
     "prisma:generate": "npm run prisma:generate --prefix server",
     "prisma:migrate": "npm run prisma:migrate --prefix server",
     "prisma:seed": "npm run prisma:seed --prefix server",
-    "vercel-build": "npm run build:client",
-    "render-build": "npm run build"
+    "vercel-build": "npm run build:client && npm run build:server"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
