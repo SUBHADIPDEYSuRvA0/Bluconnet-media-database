@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth.routes';
 import companyRoutes from './routes/company.routes';
 import userRoutes from './routes/user.routes';
+import statusRoutes from './routes.status.routes';
 
 dotenv.config();
 export const prisma = new PrismaClient();
@@ -52,6 +53,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Backend status page
+app.use('/api', statusRoutes);
+
 // Serve frontend in production (only when running standalone)
 if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const clientDistPath = path.join(__dirname, '../../client/dist');
@@ -68,8 +72,8 @@ if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
 if (!process.env.VERCEL) {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log('Server running on http://localhost:' + PORT);
+    console.log('Environment: ' + (process.env.NODE_ENV || 'development'));
   });
 }
 
