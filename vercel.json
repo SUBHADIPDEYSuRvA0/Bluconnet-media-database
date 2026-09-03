@@ -1,4 +1,4 @@
-﻿{
+{
   "version": 2,
   "framework": "vite",
   "buildCommand": "cd client && npm ci && npm run build",
