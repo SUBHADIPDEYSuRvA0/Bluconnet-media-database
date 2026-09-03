@@ -1,10 +1,13 @@
-﻿import express from 'express';
+﻿import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { PrismaClient } from '@prisma/client';
 import authRoutes from '../server/src/routes/auth.routes';
 import companyRoutes from '../server/src/routes/company.routes';
 import userRoutes from '../server/src/routes/user.routes';
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
 
 const app = express();
 
@@ -28,7 +31,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/users', userRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -36,4 +39,5 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+export { prisma };
 export default app;
