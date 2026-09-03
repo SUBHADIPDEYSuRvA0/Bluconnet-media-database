@@ -6,6 +6,10 @@
   "installCommand": "npm install && npm install --prefix client && npm install --prefix server",
   "rewrites": [
     {
+      "source": "/api/create-admin",
+      "destination": "/api/create-admin-handler"
+    },
+    {
       "source": "/api/seed",
       "destination": "/api/seed-handler"
     },
