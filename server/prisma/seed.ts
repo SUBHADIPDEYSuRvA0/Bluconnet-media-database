@@ -1,23 +1,23 @@
-import { PrismaClient, Role, Status, LeadQuality } from '@prisma/client';
+﻿import { PrismaClient, Role, Status, LeadQuality } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('Seeding database...');
   
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  const hashedPassword = await bcrypt.hash('Admin@1234', 10);
 
   // Create Users
   const superAdmin = await prisma.user.upsert({
     where: { email: 'admin@bluconnetmedia.com' },
-    update: {},
+    update: { passwordHash: hashedPassword },
     create: { name: 'Super Admin', email: 'admin@bluconnetmedia.com', passwordHash: hashedPassword, role: Role.SUPER_ADMIN },
   });
 
   const employee = await prisma.user.upsert({
     where: { email: 'rahul@bluconnetmedis.com' },
-    update: {},
+    update: { passwordHash: hashedPassword },
     create: { name: 'Rahul Sharma', email: 'rahul@bluconnetmedis.com', passwordHash: hashedPassword, role: Role.EMPLOYEE },
   });
 
@@ -29,17 +29,16 @@ async function main() {
   ];
 
   for (const comp of companies) {
-    // Idempotent guard: only create if a company with the same email doesn't exist,
-    // so re-running the seed never creates duplicate rows.
     const found = await prisma.company.findFirst({ where: { email: comp.email } });
     if (!found) {
       await prisma.company.create({ data: comp as any });
     } else {
-      console.log(`Skipping existing company: ${comp.companyName}`);
+      console.log('Skipping existing company: ' + comp.companyName);
     }
   }
 
-  console.log('✅ Seeding completed!');
+  console.log('Seeding completed!');
+  console.log('Default login: admin@bluconnetmedia.com / Admin@1234');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });
