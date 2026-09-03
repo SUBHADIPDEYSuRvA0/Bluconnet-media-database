@@ -27,8 +27,7 @@ services:
       - key: JWT_REFRESH_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        # Set this to the deployed Vercel frontend URL in Render after deployment.
-        sync: false
+        value: https://media-database-6z37304h4-subhadip-deys-projects.vercel.app
 
   # Frontend Static Site
   - type: web
@@ -39,13 +38,12 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: https://bluconnet-backend.onrender.com/api/*
+        destination: https://bluconnet-api.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        # Update this to your backend URL after deploying backend
-        value: https://bluconnet-backend.onrender.com
+        value: https://bluconnet-api.onrender.com/api
 
 # Production database is Neon PostgreSQL. Set DATABASE_URL in Render.

@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://bluconnet-backend.onrender.com/api/$1"
+      "destination": "https://bluconnet-api.onrender.com/api/$1"
     },
     {
       "source": "/(.*)",
