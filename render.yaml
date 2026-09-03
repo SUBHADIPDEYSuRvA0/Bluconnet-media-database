@@ -1,13 +1,15 @@
-# Render Blueprint for B2B Lead Platform
+﻿# Render Blueprint for B2B Lead Platform
 # Deploy: https://render.com/docs/blueprint-spec
 
 services:
   # Backend API Service
   - type: web
-    name: b2b-lead-backend
-    runtime: docker
-    dockerfilePath: ./server/Dockerfile
+    name: bluconnet-backend
+    runtime: node
+    region: oregon
     plan: starter
+    buildCommand: cd server && npm ci && npx prisma generate && npm run build
+    startCommand: cd server && npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -23,22 +25,29 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         # Set this to your frontend URL after deploying frontend
-        value: https://b2b-lead-frontend.onrender.com
+        value: https://bluconnet-frontend.onrender.com
 
   # Frontend Static Site
   - type: web
-    name: b2b-lead-frontend
-    runtime: docker
-    dockerfilePath: ./client/Dockerfile
-    plan: starter
+    name: bluconnet-frontend
+    runtime: static
+    buildCommand: cd client && npm ci && npm run build
+    staticPublishPath: ./client/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://bluconnet-backend.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
         # Update this to your backend URL after deploying backend
-        value: https://b2b-lead-backend.onrender.com
+        value: https://bluconnet-backend.onrender.com
 
 # Optional: Create a PostgreSQL database on Render
 databases:
-  - name: b2b-lead-database
-    plan: starter
-    databaseName: leadplatform
+  - name: bluconnet-database
+    plan: free
+    databaseName: bluconnet
     user: admin
