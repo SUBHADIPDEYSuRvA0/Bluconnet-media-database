@@ -13,6 +13,7 @@ const client_1 = require("@prisma/client");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const company_routes_1 = __importDefault(require("./routes/company.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
+const status_routes_1 = __importDefault(require("./routes/status.routes"));
 dotenv_1.default.config();
 exports.prisma = new client_1.PrismaClient();
 const app = (0, express_1.default)();
@@ -51,6 +52,8 @@ app.get('/api/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development',
     });
 });
+// Backend status page
+app.use('/api', status_routes_1.default);
 // Serve frontend in production (only when running standalone)
 if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
     const clientDistPath = path_1.default.join(__dirname, '../../client/dist');
@@ -65,8 +68,8 @@ if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
 if (!process.env.VERCEL) {
     const PORT = process.env.PORT || 4000;
     app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('Server running on http://localhost:' + PORT);
+        console.log('Environment: ' + (process.env.NODE_ENV || 'development'));
     });
 }
 // Graceful shutdown

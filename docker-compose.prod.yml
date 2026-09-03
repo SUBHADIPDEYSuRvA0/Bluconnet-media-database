@@ -32,7 +32,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-supersecretjwtkey2026}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-supersecretrefreshkey2026}
       - PORT=4000
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://media-database-bay.vercel.app}
     depends_on:
       db:
         condition: service_healthy

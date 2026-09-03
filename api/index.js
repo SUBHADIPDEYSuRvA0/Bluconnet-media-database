@@ -18,7 +18,7 @@ app.use(helmet({
 // CORS configuration
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:3000', 'http://localhost:5173'];
+  : ['https://media-database-bay.vercel.app', 'http://localhost:5173'];
 
 app.use(cors({
   origin: (origin, callback) => {

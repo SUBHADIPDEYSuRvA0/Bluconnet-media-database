@@ -198,7 +198,7 @@ For self-hosted deployment on any VPS (DigitalOcean, Linode, AWS EC2, etc.)
        server_name your-domain.com;
 
        location / {
-           proxy_pass http://localhost:3000;
+           proxy_pass https://media-database-bay.vercel.app;
            proxy_http_version 1.1;
            proxy_set_header Upgrade $http_upgrade;
            proxy_set_header Connection 'upgrade';
