@@ -1,8 +1,11 @@
 ﻿# Render Blueprint for B2B Lead Platform
 # Deploy: https://render.com/docs/blueprint-spec
+#
+# IMPORTANT: Use "Blueprint" deployment method in Render Dashboard
+# Do NOT use manual Docker deployment - this config uses Node.js runtime
 
 services:
-  # Backend API Service
+  # Backend API Service (Node.js)
   - type: web
     name: bluconnet-backend
     runtime: node
